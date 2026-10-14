@@ -1,4 +1,4 @@
-# Gold Jewellery Billing System
+# Kartik Alankar Jewellers System
 
 A Streamlit billing application for manually entered gold prices.
 

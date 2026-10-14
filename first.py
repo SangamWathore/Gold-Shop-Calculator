@@ -26,7 +26,7 @@ UNIT_LABELS = {
 
 TEXT = {
     "en": {
-        "language": "मराठी", "title": "💰 Gold Jewellery Billing",
+        "language": "मराठी", "title": "💰 Kartik Alankar Jewellers",
         "caption": "Live 24K price is cached for 5 minutes. Manual fallback remains available.",
         "live_settings": "Live settings", "refresh": "Refresh live gold price",
         "live_price": "Live 24K price: ₹{price:,.2f}/g\\ Updated: {updated}",
@@ -44,7 +44,7 @@ TEXT = {
         "comparison": "Invoice total comparison over time", "english": "English", "error": "Error",
     },
     "mr": {
-        "language": "English", "title": "💰 सोन्याच्या दागिन्यांचे बिलिंग",
+        "language": "English", "title": "💰 कार्तिक अलंकार ज्वेलर्स",
         "caption": "24K सोन्याचा सध्याचा दर 5 मिनिटांसाठी जतन केला जातो. मॅन्युअल दराचा पर्याय उपलब्ध आहे.",
         "live_settings": "सध्याच्या दराची सेटिंग्ज", "refresh": "सोन्याचा सध्याचा दर अपडेट करा",
         "live_price": "सध्याचा दर: ₹{price:,.2f}/ग्रॅम\\nअपडेट वेळ: {updated}",
@@ -74,6 +74,11 @@ def tr(key: str, **values: object) -> str:
 def mt(english: str, marathi: str) -> str:
     """Return a pledge-flow label in the currently selected language."""
     return marathi if st.session_state.get("language", "en") == "mr" else english
+
+
+def render_watermark() -> None:
+    """Render the small application ownership watermark."""
+    st.caption("Created by sangam_wathore")
 
 
 def localized_error(message: str) -> str:
@@ -322,6 +327,7 @@ def render_app() -> None:
         render_history()
     with pledge_tab:
         render_pledge_flow(default_price)
+    render_watermark()
 
 
 if __name__ == "__main__":
