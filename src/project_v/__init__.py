@@ -9,6 +9,7 @@ from typing import Any
 PURITY_FACTORS = {
     "24K": 1.0,
     "22K": 22 / 24,
+    "20K": 20 / 24,
     "18K": 18 / 24,
     "14K": 14 / 24,
 }
@@ -162,7 +163,6 @@ def receipt_text(calculation: Calculation) -> str:
         f"Wastage charges:  ₹{c.wastage_charges:,.2f}",
         f"Stone charges:    ₹{c.stone_charges:,.2f}",
         f"Subtotal:         ₹{c.subtotal:,.2f}",
-        f"GST ({c.gst_rate:.2f}%):       ₹{c.gst:,.2f}",
         "=" * 28, f"TOTAL:            ₹{c.total:,.2f}",
     ]
     return "\n".join(rows) + "\n"

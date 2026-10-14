@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import uuid4
 
-from vaibhav import Calculation
+from project_v import Calculation
 
 
 @dataclass(frozen=True)

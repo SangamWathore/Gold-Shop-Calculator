@@ -7,8 +7,8 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
 
 import pytest
 
-from vaibhav import calculate_total, convert_to_grams
-from vaibhav.invoices import create_invoice
+from project_v import calculate_total, convert_to_grams
+from project_v.invoices import create_invoice
 
 
 def make_item():

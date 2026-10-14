@@ -34,7 +34,7 @@ def get_live_price() -> tuple[float, str]:
     query = urlencode({"base_currency": "INR", "currencies": "XAU"})
     request = Request(
         f"https://api.currencyapi.com/v3/latest?{query}",
-        headers={"apikey": api_key, "User-Agent": "vaibhav-gold-billing/1.0"},
+        headers={"apikey": api_key, "User-Agent": "project_v-gold-billing/1.0"},
     )
     try:
         with urlopen(request, timeout=10) as response:

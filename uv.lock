@@ -1033,7 +1033,7 @@ wheels = [
 ]
 
 [[package]]
-name = "vaibhav"
+name = "project_v"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
