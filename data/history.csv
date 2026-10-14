@@ -1,0 +1,2 @@
+name,age,city,purity,input_weight,unit,weight_grams,base_price_per_gram,adjusted_price_per_gram,gold_value,making_charges,wastage_charges,stone_charges,subtotal,gst,gst_rate,total,created_at
+sangam,18,pune,24K,1.0,Grams,1.0,14826.0,14826.0,14826.0,500.0,1.4826,0.0,15327.4826,2758.9468679999995,18.0,18086.429468,2026-10-14 16:36:54
