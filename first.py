@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from datetime import date
 
@@ -9,9 +10,11 @@ import pandas as pd
 import streamlit as st
 
 from project_v import PURITY_FACTORS, adjusted_price, calculate_total
+from project_v.auth import render_login, render_logout
 from project_v.database import load_invoices, load_pledges, record_pledge_payment, save_invoice, save_pledge
 from project_v.invoices import Invoice, create_invoice
 from project_v.pledges import Pledge, create_pledge, default_due_date
+from project_v.photo_storage import save_pledge_photos
 from project_v.price_provider import get_live_price
 from project_v.receipts import invoice_csv, invoice_pdf, invoice_text
 
@@ -73,6 +76,41 @@ def mt(english: str, marathi: str) -> str:
     return marathi if st.session_state.get("language", "en") == "mr" else english
 
 
+def localized_error(message: str) -> str:
+    """Translate known application errors into Marathi when Marathi mode is active."""
+    if st.session_state.get("language", "en") != "mr":
+        return message
+    translations = {
+        "Name must contain letters and may include spaces, dots, or hyphens.": "नावात अक्षरे असावीत; स्पेस, डॉट किंवा हायफन वापरू शकता.",
+        "Age must be between 1 and 120.": "वय 1 ते 120 दरम्यान असावे.",
+        "City must contain letters and may include spaces, dots, or hyphens.": "शहराच्या नावात अक्षरे असावीत; स्पेस, डॉट किंवा हायफन वापरू शकता.",
+        "Customer name and city are required.": "ग्राहकाचे नाव आणि शहर आवश्यक आहे.",
+        "Customer age must be between 1 and 120.": "ग्राहकाचे वय 1 ते 120 दरम्यान असावे.",
+        "Select a valid gold purity.": "कृपया योग्य सोन्याची शुद्धता निवडा.",
+        "Weight cannot be negative.": "वजन ऋण असू शकत नाही.",
+        "Base price cannot be negative.": "मूळ किंमत ऋण असू शकत नाही.",
+        "Making charge per gram cannot be negative.": "प्रति ग्रॅम घडणावळ ऋण असू शकत नाही.",
+        "Wastage percent cannot be negative.": "घट टक्केवारी ऋण असू शकत नाही.",
+        "Stone charges cannot be negative.": "खड्यांची किंमत ऋण असू शकत नाही.",
+        "Gst percent cannot be negative.": "GST टक्केवारी ऋण असू शकत नाही.",
+        "Gross weight cannot be negative.": "एकूण वजन ऋण असू शकत नाही.",
+        "Stone weight cannot be greater than gross weight.": "खड्यांचे वजन एकूण वजनापेक्षा जास्त असू शकत नाही.",
+        "LTV percentage must be greater than 0 and at most 100.": "कर्ज-मूल्य प्रमाण 0 पेक्षा जास्त आणि 100 पेक्षा कमी किंवा समान असावे.",
+        "Due date cannot be in the past.": "देय तारीख मागील तारीख असू शकत नाही.",
+        "Payment amount must be greater than zero.": "परतफेडीची रक्कम शून्यापेक्षा जास्त असावी.",
+        "Pledge was not found.": "तारण नोंद सापडली नाही.",
+        "Payment cannot be greater than the outstanding loan.": "परतफेडीची रक्कम बाकी कर्जापेक्षा जास्त असू शकत नाही.",
+        "Only JPG, JPEG, PNG, and WEBP photos are supported.": "फक्त JPG, JPEG, PNG आणि WEBP फोटो स्वीकारले जातात.",
+        "PDF support requires ReportLab. Run: uv sync": "PDF साठी ReportLab आवश्यक आहे. `uv sync` चालवा.",
+        "currencyapi returned an invalid gold rate": "currencyapi ने चुकीचा सोन्याचा दर दिला आहे",
+        "Unable to fetch live gold price": "सोन्याचा सध्याचा दर मिळवता आला नाही",
+    }
+    translated = message
+    for english, marathi in translations.items():
+        translated = translated.replace(english, marathi)
+    return translated if translated != message else f"त्रुटी: {message}"
+
+
 def item_form(number: int, default_price: float) -> dict[str, object]:
     """Render one jewellery-item form and return its input values."""
     st.markdown(f"#### {tr('item', number=number)}")
@@ -120,7 +158,7 @@ def render_invoice(invoice: Invoice) -> None:
     try:
         st.download_button(tr("pdf"), invoice_pdf(invoice), f"{invoice.invoice_number}.pdf", "application/pdf")
     except RuntimeError as error:
-        st.warning(str(error))
+        st.warning(localized_error(str(error)))
     if st.button(tr("save")):
         save_invoice(DATABASE_FILE, invoice)
         st.success(tr("saved"))
@@ -164,10 +202,12 @@ def render_pledge_flow(default_price: float) -> None:
     gross_weight = third.number_input(mt("Gross weight (g)", "एकूण वजन (ग्रॅम)"), min_value=0.0, value=10.0, step=0.1, key="pledge_gross_weight")
     first, second, third = st.columns(3)
     stone_weight = first.number_input(mt("Stone weight (g)", "खड्यांचे वजन (ग्रॅम)"), min_value=0.0, value=0.0, step=0.1, key="pledge_stone_weight")
-    base_price = second.number_input(mt("Base 24K price / gram (₹)", "मूळ 24K दर / ग्रॅम (₹)"), min_value=0.0, value=default_price, step=100.0, key="pledge_base_price")
+    price_label = mt(f"{purity} price / gram (₹)", f"{purity} दर / ग्रॅम (₹)")
+    selected_price = second.number_input(price_label, min_value=0.0, value=adjusted_price(default_price, purity), step=100.0, key=f"pledge_price_{purity}")
     ltv = third.number_input(mt("Loan-to-value (%)", "कर्ज-मूल्य प्रमाण (%)"), min_value=1.0, max_value=100.0, value=70.0, step=1.0, key="pledge_ltv")
     net_weight = max(gross_weight - stone_weight, 0.0)
-    purity_price = adjusted_price(base_price, purity)
+    purity_price = selected_price
+    base_price = selected_price / PURITY_FACTORS[purity]
     gold_value = net_weight * purity_price
     maximum_loan = gold_value * ltv / 100
     first, second, third = st.columns(3)
@@ -179,6 +219,11 @@ def render_pledge_flow(default_price: float) -> None:
     due_date = st.date_input(mt("Due date", "देय तारीख"), value=default_due_date(), min_value=date.today(), key="pledge_due_date")
     storage_reference = st.text_input(mt("Storage packet / locker reference", "साठवण पाकीट / लॉकर क्रमांक"), key="pledge_storage")
     notes = st.text_area(mt("Notes", "नोंदी"), key="pledge_notes")
+    uploaded_photos = st.file_uploader(
+        mt("Evidence photos of jewellery", "दागिन्यांचे पुरावे म्हणून फोटो"),
+        type=["jpg", "jpeg", "png", "webp"], accept_multiple_files=True,
+        key="pledge_photos",
+    )
     if st.button(mt("Create pledge record", "तारण नोंद तयार करा"), type="primary"):
         try:
             pledge = create_pledge(
@@ -188,11 +233,16 @@ def render_pledge_flow(default_price: float) -> None:
                 requested_loan=requested_loan, monthly_interest_percent=monthly_interest,
                 due_date=due_date, storage_reference=storage_reference, notes=notes,
             )
+            photo_paths = save_pledge_photos(pledge.pledge_number, uploaded_photos)
+            pledge = replace(pledge, photo_paths=photo_paths)
             save_pledge(DATABASE_FILE, pledge)
             st.session_state.last_pledge = pledge
             st.success(mt(f"Pledge {pledge.pledge_number} saved successfully.", f"तारण {pledge.pledge_number} यशस्वीरित्या जतन झाले."))
+            if photo_paths:
+                st.caption(mt(f"Saved {len(photo_paths)} evidence photo(s).", f"{len(photo_paths)} पुराव्याचे फोटो जतन झाले."))
+                st.image(list(photo_paths), width="stretch")
         except ValueError as error:
-            st.error(str(error))
+            st.error(localized_error(str(error)))
     render_pledge_history()
 
 
@@ -215,6 +265,7 @@ def render_pledge_history() -> None:
             mt("Loan (₹)", "कर्ज (₹)"): row["requested_loan"], mt("Paid (₹)", "भरलेले (₹)"): row["amount_paid"],
             mt("Outstanding (₹)", "बाकी (₹)"): max(row["requested_loan"] - row["amount_paid"], 0),
             mt("Due date", "देय तारीख"): row["due_date"], mt("Status", "स्थिती"): row["status"],
+            mt("Photos", "फोटो"): len(details.get("photo_paths", [])),
         })
     st.dataframe(pd.DataFrame(summaries), hide_index=True, width="stretch")
     active = [row["pledge_number"] for row in rows if row["status"] == "Active"]
@@ -227,13 +278,16 @@ def render_pledge_history() -> None:
                 record_pledge_payment(DATABASE_FILE, selected, amount, note)
                 st.success(mt("Repayment recorded. Refresh the page to see the updated status.", "परतफेड नोंदवली. अद्ययावत स्थिती पाहण्यासाठी पृष्ठ रिफ्रेश करा."))
             except ValueError as error:
-                st.error(str(error))
+                st.error(localized_error(str(error)))
 
 
 def render_app() -> None:
     """Render the complete multi-item Streamlit billing application."""
     language = st.session_state.get("language", "en")
     st.set_page_config(page_title="Gold Billing", page_icon="💰", layout="wide")
+    if not render_login():
+        return
+    render_logout()
     with st.sidebar:
         marathi = st.toggle("मराठी", value=language == "mr")
         st.session_state.language = "mr" if marathi else "en"
@@ -249,7 +303,7 @@ def render_app() -> None:
             st.success(tr("live_price", price=default_price, updated=updated_at))
             render_live_rate_table(default_price)
         except RuntimeError as error:
-            st.warning(tr("unavailable", error=error))
+            st.warning(tr("unavailable", error=localized_error(str(error))))
     sale_tab, pledge_tab = st.tabs([mt("Jewellery Sale", "दागिन्यांची विक्री"), mt("Gold Pledge / Loan", "सोने तारण / कर्ज")])
     with sale_tab:
         st.subheader(tr("customer"))
@@ -262,7 +316,7 @@ def render_app() -> None:
             try:
                 st.session_state.invoice = build_invoice(customer, item_inputs)
             except ValueError as error:
-                st.error(f"{tr('error')}: {error}")
+                st.error(f"{tr('error')}: {localized_error(str(error))}")
         if invoice := st.session_state.get("invoice"):
             render_invoice(invoice)
         render_history()

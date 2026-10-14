@@ -35,6 +35,7 @@ class Pledge:
     status: str
     amount_paid: float
     created_at: str
+    photo_paths: tuple[str, ...] = ()
 
     @property
     def outstanding_amount(self) -> float:
@@ -48,6 +49,7 @@ def create_pledge(
     stone_weight_grams: float, base_price_24k: float, ltv_percent: float,
     requested_loan: float, monthly_interest_percent: float,
     due_date: date, storage_reference: str, notes: str,
+    photo_paths: tuple[str, ...] = (),
 ) -> Pledge:
     """Validate pledge details and calculate the collateral value and loan limit."""
     if not customer_name.strip() or not customer_city.strip():
@@ -87,6 +89,7 @@ def create_pledge(
         monthly_interest_percent=monthly_interest_percent, due_date=due_date.isoformat(),
         storage_reference=storage_reference.strip(), notes=notes.strip(), status="Active",
         amount_paid=0.0, created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        photo_paths=photo_paths,
     )
 
 

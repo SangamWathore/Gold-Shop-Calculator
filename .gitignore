@@ -1,6 +1,7 @@
 .env
 .streamlit/secrets.toml
 data/*.sqlite3
+data/pledge_photos/
 __pycache__/
 .pytest_cache/
 .venv/
